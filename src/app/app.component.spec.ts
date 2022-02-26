@@ -1,35 +1,37 @@
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { firstValueFrom, map, mapTo, of } from 'rxjs';
 import { AppComponent } from './app.component';
+import { DataService } from './services/data.service';
 
 describe('AppComponent', () => {
+  let dataService = {} as any;
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [
-        RouterTestingModule
-      ],
-      declarations: [
-        AppComponent
-      ],
+      imports: [RouterTestingModule],
+      providers: [{ provide: DataService, useValue: dataService }],
+      declarations: [AppComponent],
     }).compileComponents();
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
+  it('should work', () => {
+    const person = { foo: 'bar' } as any;
 
-  it(`should have as title 'service-pattern-playground'`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('service-pattern-playground');
-  });
+    dataService.switchPerson = jest.fn().mockReturnValue(mapTo(person));
 
-  it('should render title', () => {
+    dataService.getPeople = () => of(null);
+
     const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.content span')?.textContent).toContain('service-pattern-playground app is running!');
+    const component = fixture.componentInstance;
+
+    const promise = firstValueFrom(component.person$).then((p) => {
+      expect(p).toEqual(person);
+      expect(dataService.switchPerson).toHaveBeenCalled();
+      expect(dataService.switchPerson).toHaveBeenCalledTimes(1);
+    });
+
+    component.showPerson('1');
+
+    return promise;
   });
 });
