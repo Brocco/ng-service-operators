@@ -1,22 +1,18 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { delay, map, Observable, of, OperatorFunction, switchMap } from 'rxjs';
-
-interface PeopleRespose {
-  results: Person[];
-}
-interface Person {
-  id?: string;
-  url: string;
-  name: string;
-  height: string;
-  mass: string;
-  hair_color: string;
-  skin_color: string;
-  eye_color: string;
-  birth_year: string;
-  gender: string;
-}
+import {
+  delay,
+  iif,
+  map,
+  mapTo,
+  Observable,
+  of,
+  OperatorFunction,
+  pipe,
+  switchMap,
+  tap,
+} from 'rxjs';
+import { PeopleRespose, Person } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class DataService {
@@ -45,48 +41,44 @@ export class DataService {
   //   ));
 
   getPerson(personId: string) {
-    // return of(personId).pipe(this.personGetter2());
-    return this.http.get<Person>(`${this.baseUrl}/${personId}`).pipe(
-      delay(2000), // artificial delay
-      map((person) => ({
-        id: this.parseIdFromUrl(person.url),
-        ...person,
-      }))
-    );
+    return of(personId).pipe(this.switchPerson());
+    // return this.http.get<Person>(`${this.baseUrl}/${personId}`).pipe(
+    //   delay(2000), // artificial delay
+    //   map((person) => ({
+    //     id: this.parseIdFromUrl(person.url),
+    //     ...person,
+    //   }))
+    // );
   }
 
   private parseIdFromUrl(url: string): string {
     return url.split('/').slice(-2)[0];
   }
 
-  personMap: OperatorFunction<string, Person> = switchMap<
-    string,
-    Observable<Person>
-  >((personId) =>
-    this.http.get<Person>(`${this.baseUrl}/${personId}`).pipe(
-      // delay(2000), // artificial delay
-      map(
-        (person) =>
-          ({
-            id: this.parseIdFromUrl(person.url),
-            ...person,
-          } as Person)
-      )
-    )
-  );
+  // switchPerson_: OperatorFunction<string, Person> = switchMap<
+  //   string,
+  //   Observable<Person>
+  // >((personId) =>
+  //   this.http.get<Person>(`${this.baseUrl}/${personId}`).pipe(
+  //     // delay(2000), // artificial delay
+  //     map(
+  //       (person) =>
+  //         ({
+  //           id: this.parseIdFromUrl(person.url),
+  //           ...person,
+  //         } as Person)
+  //     )
+  //   )
+  // );
+
   /**
    *
    * @param mapFunction mapping function to get the personId
    * @returns The person from the remote server
    */
-  switchPerson<T>(
-    mapFunction?: (...args: any[]) => string
-  ): OperatorFunction<T, Person> {
-    return switchMap<T, Observable<Person>>((...args) => {
-      // gets the id
-      const id = !!mapFunction ? mapFunction(...args) : args[0];
-
-      return this.http.get<Person>(`${this.baseUrl}/${id}`).pipe(
+  switchPerson(): OperatorFunction<string, Person> {
+    return switchMap((personId: any) => {
+      return this.http.get<Person>(`${this.baseUrl}/${personId}`).pipe(
         map((person) => ({
           id: this.parseIdFromUrl(person.url),
           ...person,
@@ -94,4 +86,22 @@ export class DataService {
       );
     });
   }
+
+  switchPersonMap<T>(
+    project: (value: T) => string
+  ): OperatorFunction<T, Person> {
+    return pipe(map(project), this.switchPerson());
+  }
+
+  switchPersonPT<T>(
+    context: T
+  ): OperatorFunction<string, { context: T; person: Person }> {
+    return pipe(
+      this.switchPerson(),
+      map((person) => ({ context, person }))
+    );
+  }
 }
+// switchPerson<T>(
+//   thing: string | <T>(value: T) => string
+// )
